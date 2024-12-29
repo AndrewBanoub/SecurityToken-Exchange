@@ -2,13 +2,10 @@ import React, { useState,useEffect } from "react";
 import { ethers } from "ethers";
 
 import tokenABIJson from "../../SmartContract/artifacts/contracts/TribeSTO.sol/TribeSTO.json";
-import exchangeABIJson from "../../SmartContract/artifacts/contracts/Exchange.sol/Exchange.json";
 
 const tokenABI = tokenABIJson.abi;
-const exchangeABI = exchangeABIJson.abi;
 
-const tokenContractAddress = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
-const exchangeContractAddress = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
+const tokenContractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
 const Whitelist = () => {
     const [whitelist,setWhitelist] = useState([]);

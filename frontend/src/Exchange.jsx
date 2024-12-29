@@ -8,8 +8,8 @@ import exchangeABIJson from "../../SmartContract/artifacts/contracts/Exchange.so
 const tokenABI = tokenABIJson.abi;
 const exchangeABI = exchangeABIJson.abi;
 
-const tokenContractAddress = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
-const exchangeContractAddress = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
+const tokenContractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const exchangeContractAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 
 const Exchange = () => {   
 
@@ -37,7 +37,7 @@ const Exchange = () => {
     useEffect(() => {
       tokenInContract();
       ethInContract();
-      contractTotalLiquidity();
+      contractTotalLiquidity();//
     },[]) 
     
     useEffect(() => {
@@ -59,6 +59,39 @@ const Exchange = () => {
     useEffect(() => {
       calculateInput2();
     },[Input1]);
+
+    const swap = async() => {
+      try{
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const exchangeContract = new ethers.Contract(exchangeContractAddress,exchangeABI,signer);
+        if (switchButton){
+          const tx = await exchangeContract.tokenToEthSwap(ethers.parseEther(placeHolder1),ethers.parseEther(placeHolder2));
+          console.log("Swap", tx);
+          const receipt = await tx.wait(); // Wait for the transaction to be mined
+          console.log("Transaction confirmed");
+          //console.log("Event", receipt.events);
+          const events = await exchangeContract.queryFilter('Swap');
+          const lastEvent = events[events.length-1];
+          console.log("Swap from", ethers.formatEther(lastEvent.args.inputAmount), "TRIBE to", ethers.formatEther(lastEvent.args.outputAmount), "ETH");
+        
+        } else if (!switchButton){
+          const tx = await exchangeContract.ethToTokenSwap(ethers.parseEther(placeHolder1),{value:ethers.parseEther(placeHolder2)});
+          console.log("Swap", tx);
+          const receipt = await tx.wait(); // Wait for the transaction to be mined
+          console.log("Transaction confirmed");
+          //console.log("Event", receipt.events[0]);
+          const events = await exchangeContract.queryFilter('Swap');
+          const lastEvent = events[events.length-1];
+          console.log("Swap from", ethers.formatEther(lastEvent.args.inputAmount), "ETH to", ethers.formatEther(lastEvent.args.outputAmount), "TRIBE");
+        }
+        tokenInContract();
+        ethInContract();
+        contractTotalLiquidity();
+      } catch (error){
+        console.error("Transaction failed", error)
+      }
+    }
 
     const switchCurrencyDirections = () => {
       if(switchButton == true){
@@ -92,17 +125,13 @@ const Exchange = () => {
       try{
         const tx = await exchangeContract.getOutputAmount(ethers.parseEther(Input2),ethInContract,tokenInContract);
         //(ethInContract-(ethers.parseEther(Input2)))
-        const tx2 = ownCalculations(ethers.parseEther(Input2),ethInContract,tokenInContract);
+        //const tx2 = ownCalculations(ethers.parseEther(Input2),ethInContract,tokenInContract);
         const tx3 = ownCalculations2(ethers.parseEther(Input2),ethInContract,tokenInContract);
         if(switchButton){
           SetPlaceHolder1(ethers.formatEther(tx3));
         } else if (!switchButton){
           SetPlaceHolder1(ethers.formatEther(tx));
         }
-        //SetPlaceHolder1(ethers.formatEther(tx));
-        console.log("check");
-        console.log(ethers.formatEther(tx3));
-        console.log(ethers.formatEther(tx));
       } catch (error){
         console.error("error",error);
       }
@@ -117,7 +146,7 @@ const Exchange = () => {
       const ethInContract = await provider.getBalance(exchangeContractAddress);
       try{
         const tx = await exchangeContract.getOutputAmount(ethers.parseEther(Input1),tokenInContract,ethInContract);
-        const tx2 = ownCalculations(ethers.parseEther(Input1),tokenInContract,ethInContract);
+        //const tx2 = ownCalculations(ethers.parseEther(Input1),tokenInContract,ethInContract);
         const tx3 = ownCalculations2(ethers.parseEther(Input1),tokenInContract,ethInContract);
         //console.log("Token", tokenInContract, "Eth:", ethInContract, "input:", ethers.parseEther(Input1));
         if(switchButton){
@@ -125,9 +154,6 @@ const Exchange = () => {
         } else if (!switchButton){
           SetPlaceHolder2(ethers.formatEther(tx3));
         }
-        //SetPlaceHolder2(ethers.formatEther(tx));
-        console.log(ethers.formatEther(tx3));
-        console.log(ethers.formatEther(tx));
       } catch (error){
         console.error("error",error);
       }
@@ -180,7 +206,7 @@ const Exchange = () => {
         const tx = await tokenContract.depositDividends({
             value: ethers.parseEther(depositAmount)
           });
-        console.log("Hello", tx);
+        console.log("Deposit", tx);
         await tx.wait(); // Wait for the transaction to be mined
         console.log("Transaction confirmed");
       } catch (error){
@@ -299,7 +325,7 @@ const Exchange = () => {
             </div>
   
             {/* Swap Button */}
-            <button className="swap-button">Swap</button>
+            <button onClick={swap} className="swap-button">Swap</button>
           </div>
         </div>
         <div className="test-buttons">
