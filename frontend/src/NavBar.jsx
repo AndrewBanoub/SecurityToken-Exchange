@@ -58,7 +58,7 @@ const NavBar = () => {
             });
         } else {
             /* MetaMask is not installed */
-            setWalletAddress("");
+            setAccount("");
             console.log("Please install MetaMask");
         }
     };

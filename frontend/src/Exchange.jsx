@@ -18,7 +18,10 @@ const Exchange = () => {
     const [Input2, SetInput2] = useState("");
     const [placeHolder1, SetPlaceHolder1] = useState("");
     const [placeHolder2, SetPlaceHolder2] = useState("");
-    const [depositAmount, setDepositAmount] = useState("");
+    const [addLiquidityAmountEth, setAddLiquidityAmountEth] = useState("");
+    const [addLiquidityAmountToken, setAddLiquidityAmountToken] = useState("");
+    const [userBalanceEth, setUserBalanceEth] = useState("");
+    const [userBalanceToken, setUserBalanceToken] = useState("");
 
     const [contractLiquidity,setContractLiquidity] = useState(() => {
       const savedLiquidity = sessionStorage.getItem("liquidityKey");
@@ -35,9 +38,10 @@ const Exchange = () => {
     });
 
     useEffect(() => {
+      UserBalance();
       tokenInContract();
       ethInContract();
-      contractTotalLiquidity();//
+      contractTotalLiquidity();
     },[]) 
     
     useEffect(() => {
@@ -68,7 +72,7 @@ const Exchange = () => {
         if (switchButton){
           const tx = await exchangeContract.tokenToEthSwap(ethers.parseEther(placeHolder1),ethers.parseEther(placeHolder2));
           console.log("Swap", tx);
-          const receipt = await tx.wait(); // Wait for the transaction to be mined
+          await tx.wait();
           console.log("Transaction confirmed");
           //console.log("Event", receipt.events);
           const events = await exchangeContract.queryFilter('Swap');
@@ -78,13 +82,14 @@ const Exchange = () => {
         } else if (!switchButton){
           const tx = await exchangeContract.ethToTokenSwap(ethers.parseEther(placeHolder1),{value:ethers.parseEther(placeHolder2)});
           console.log("Swap", tx);
-          const receipt = await tx.wait(); // Wait for the transaction to be mined
+          await tx.wait();
           console.log("Transaction confirmed");
           //console.log("Event", receipt.events[0]);
           const events = await exchangeContract.queryFilter('Swap');
           const lastEvent = events[events.length-1];
           console.log("Swap from", ethers.formatEther(lastEvent.args.inputAmount), "ETH to", ethers.formatEther(lastEvent.args.outputAmount), "TRIBE");
         }
+        UserBalance();
         tokenInContract();
         ethInContract();
         contractTotalLiquidity();
@@ -159,6 +164,20 @@ const Exchange = () => {
       }
     };
 
+    const UserBalance = async() => {
+      try{
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const EthBalance = await provider.getBalance(signer);
+        const contract = new ethers.Contract(tokenContractAddress,tokenABI,signer)
+        const TokenBalance = await contract.balanceOf(signer);
+        setUserBalanceEth(ethers.formatEther(EthBalance));
+        setUserBalanceToken(ethers.formatEther(TokenBalance));
+      } catch (error) {
+        console.error("Transaction failed", error);
+      }
+    }
+
     const contractTotalLiquidity = async() => {
       try{
         const provider = new ethers.BrowserProvider(window.ethereum);
@@ -198,48 +217,42 @@ const Exchange = () => {
         } 
     };
 
-    const depositDividends = async () => {
-      try{
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        const tokenContract = new ethers.Contract(tokenContractAddress,tokenABI,signer);
-        const tx = await tokenContract.depositDividends({
-            value: ethers.parseEther(depositAmount)
-          });
-        console.log("Deposit", tx);
-        await tx.wait(); // Wait for the transaction to be mined
-        console.log("Transaction confirmed");
-      } catch (error){
-        console.error("Transaction failed",error);
-      }
-    }
-
-    const returnOwner = async () => {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        const tokenContract = new ethers.Contract(tokenContractAddress,tokenABI,provider);
-        const signedTokenContract = tokenContract.connect(signer);
-        const tx = await signedTokenContract.owner();
-        console.log("Owner:", tx);
-    }
-
     const addLiquidity = async() => {
       try{
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
         const exchangeContract = new ethers.Contract(exchangeContractAddress,exchangeABI,signer)
-        const tx = await exchangeContract.addLiquidity(500,{
-          value: ethers.parseEther("2.5")
+        const tx = await exchangeContract.addLiquidity(ethers.parseEther(addLiquidityAmountToken),{
+          value: ethers.parseEther(addLiquidityAmountEth)
         });
-        console.log("Hello", tx);
+        console.log("Transaction", tx);
         await tx.wait(); // Wait for the transaction to be mined
         console.log("Transaction confirmed");
-        //setContractLiquidity(contractLiquidity+tx.value)
-        //setContractEthBalance(contractEthBalance+tx.value)
+        UserBalance();
+        tokenInContract();
+        ethInContract();
+        contractTotalLiquidity();
       } catch (error) {
-        console.error("Transaction f failed", error);
+        console.error("Transaction failed", error);
       }
-        
+    };
+
+    const removeLiquidity = async() => {
+      try{
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const exchangeContract = new ethers.Contract(exchangeContractAddress,exchangeABI,signer)
+        const tx = await exchangeContract.removeLiquidity(ethers.parseEther(addLiquidityAmountEth));
+        console.log("Transaction:", tx);
+        await tx.wait(); 
+        console.log("Transaction confirmed");
+        UserBalance();
+        tokenInContract();
+        ethInContract();
+        contractTotalLiquidity();
+      } catch (error) {
+        console.error("Transaction failed", error);
+      }  
     };
 
     return (
@@ -256,12 +269,17 @@ const Exchange = () => {
                 <label>From</label>
                 <div className="input-group">
                   <input type="text" value={placeHolder1} onChange={(e) => {
+                    if(e.target.value !== ""){
                     SetInput1(e.target.value);
                     SetPlaceHolder1(e.target.value);
+                  } else{
+                    SetPlaceHolder1(e.target.value);
+                    SetInput1("0");
+                  }
                   }} placeholder="0" />
                   <button className="token-select">TRIBE ▼</button>
                 </div>
-                <p>Balance: 0.00</p>
+                <p>Balance: {userBalanceToken}</p>
               </div>
     
               {/* Swap Icon */}
@@ -274,12 +292,17 @@ const Exchange = () => {
                 <label>To</label>
                 <div className="input-group">
                   <input type="text" value={placeHolder2} onChange={(e) => {
-                    SetInput2(e.target.value);
-                    SetPlaceHolder2(e.target.value);
+                    if(e.target.value !== ""){
+                      SetInput2(e.target.value);
+                      SetPlaceHolder2(e.target.value);
+                    } else{
+                      SetPlaceHolder2(e.target.value);
+                      SetInput2("0");
+                    }
                     }} placeholder="0" />
                   <button className="token-select">ETH ▼</button>
                 </div>
-                <p>Balance: 0.00</p>
+                <p>Balance: {userBalanceEth}</p>
               </div>
             </div>
             ) : (
@@ -289,12 +312,17 @@ const Exchange = () => {
                 <label>From</label>
                 <div className="input-group">
                   <input type="text" value={placeHolder2} onChange={(e) => {
-                    SetInput2(e.target.value);
-                    SetPlaceHolder2(e.target.value);
+                    if(e.target.value !== ""){
+                      SetInput2(e.target.value);
+                      SetPlaceHolder2(e.target.value);
+                    } else{
+                      SetPlaceHolder2(e.target.value);
+                      SetInput2("0");
+                    }
                     }} placeholder="0" />
                   <button className="token-select">ETH ▼</button>
                 </div>
-                <p>Balance: 0.00</p>
+                <p>Balance: {userBalanceEth}</p>
               </div>
     
               {/* Swap Icon */}
@@ -307,12 +335,17 @@ const Exchange = () => {
                 <label>To</label>
                 <div className="input-group">
                   <input type="text" value={placeHolder1} onChange={(e) => {
-                    SetInput1(e.target.value);
-                    SetPlaceHolder1(e.target.value);
+                    if(e.target.value !== ""){
+                      SetInput1(e.target.value);
+                      SetPlaceHolder1(e.target.value);
+                    } else{
+                      SetPlaceHolder1(e.target.value);
+                      SetInput1("0");
+                    }
                     }} placeholder="0" />
                   <button className="token-select">TRIBE ▼</button>
                 </div>
-                <p>Balance: 0.00</p>
+                <p>Balance: {userBalanceToken}</p>
               </div>
             </div>
             )}
@@ -320,7 +353,7 @@ const Exchange = () => {
   
             {/* Price Info */}
             <div className="price-info">
-              <p>Price: 1 ETH = 2000 USDT</p>
+              <p>Price: 1 ETH = {contractTokenBalance/contractEthBalance} TRIBE</p>
               <p>Slippage: 0.5%</p>
             </div>
   
@@ -329,10 +362,11 @@ const Exchange = () => {
           </div>
         </div>
         <div className="test-buttons">
-            <input type="number" min="0.1" max="100" placeholder="1" value={depositAmount} onChange={(e) => {setDepositAmount(e.target.value)}}></input>
-            <button onClick={depositDividends}>Deposit Dividends</button>
+            <input type="number" placeholder="0 ETH" value={addLiquidityAmountEth} onChange={(e) => {setAddLiquidityAmountEth(e.target.value)}}></input>
+            <input type="number" placeholder="0 TRIBE" value={addLiquidityAmountToken} onChange={(e) => {setAddLiquidityAmountToken(e.target.value)}}></input>
             <button onClick={addLiquidity}>Add liquidity</button>
-            <p>Total Liquidity: {contractLiquidity}</p>
+            <button onClick={removeLiquidity}>Remove liquidity</button>
+            <p>Total Liquidity Added: {contractLiquidity}</p>
             <p>ETH Balance: {contractEthBalance}</p>
             <p>Token Balance: {contractTokenBalance}</p>
         </div>

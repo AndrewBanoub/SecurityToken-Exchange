@@ -119,6 +119,10 @@ const Tokendata = () => {
         }
         
     };
+
+    const maxApprove = () => {
+      setApproveValue(String(ethers.formatEther(BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))));
+    }
   
     return (
       <div>
@@ -153,10 +157,11 @@ const Tokendata = () => {
           />
           <input
             type="text"
-            placeholder="Amount"
             value={approveValue}
             onChange={(e) => setApproveValue(e.target.value)}
+            placeholder="amount"
           />
+          <button onClick={maxApprove}>Max Amount</button>
           <button onClick={approve}>Approve</button>
         </div>
         <div>
